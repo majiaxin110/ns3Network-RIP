@@ -419,7 +419,9 @@ int main (int argc, char **argv)
   {
 	  anim.UpdateNodeColor(unusefulAddtions.Get(i),80,80,80);
   }
+
   csma.EnablePcapAll("pcap/mycsma");
+
   Simulator::Run ();
   Simulator::Destroy ();
   NS_LOG_INFO ("Done.");
