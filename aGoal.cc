@@ -89,13 +89,20 @@ int main (int argc, char **argv)
   NodeContainer net7 (d, c);
   NodeContainer net8 (c, a);
   NodeContainer net9(b, dst); // b->dst is 3
-//  NodeContainer net10(a, Ap); // a->Ap is 4
-//  NodeContainer net11(Ap, b); // b->Ap is 4
+  NodeContainer net10(a, Ap); // a->Ap is 4
+  NodeContainer net11(Ap, b); // b->Ap is 4
   NodeContainer routers1 (a, b, c, d, e); // NodeContainer's Constructor can only receive up to 5 parameters
   NodeContainer routers2 (f, g);
   NodeContainer nodes (src, dst);
   NodeContainer wifiAPContainer (Ap);
-  NodeContainer wifiStaContainer (a,b);
+  NodeContainer wifiStaContainer (a,b,Asuna,Kazuto);
+  NodeContainer wifiSAOContainer (Asuna,Kazuto);
+
+  NodeContainer unusefulCSMANodes;
+  unusefulCSMANodes.Create(unusefulAmount);
+  NodeContainer unusefulAddtions = unusefulCSMANodes;
+  unusefulCSMANodes.Add(c);
+
 
   // Create channels exclude wifi
   NS_LOG_INFO ("Create channels.");
@@ -112,7 +119,32 @@ int main (int argc, char **argv)
   NetDeviceContainer ndc8 = csma.Install (net8);
   NetDeviceContainer ndc9 = csma.Install (net9);
 
-  /***********************start**************************/
+  NetDeviceContainer unusefulNdc = csma.Install(unusefulCSMANodes);
+
+  // Begin : Wifi Channel settings
+  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default();
+  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default();
+  wifiPhy.SetChannel(wifiChannel.Create());
+
+  WifiHelper wifi;
+  wifi.SetRemoteStationManager("ns3::AarfWifiManager");
+
+  WifiMacHelper mac;
+  Ssid ssid = Ssid ("ns-3-ssid-poi");
+  mac.SetType("ns3::StaWifiMac",
+		  "Ssid", SsidValue(ssid),
+		  "ActiveProbing",BooleanValue(false));
+
+  NetDeviceContainer wifiStaDevices;
+  wifiStaDevices = wifi.Install(wifiPhy,mac,wifiStaContainer);
+
+  mac.SetType("ns3::ApWifiMac",
+		  "Ssid", SsidValue(ssid));
+
+  NetDeviceContainer wifiApDevices;
+  wifiApDevices = wifi.Install(wifiPhy,mac,wifiAPContainer);
+
+  // Begin : RIP routing settings
   NS_LOG_INFO ("Create IPv4 and routing");
   RipHelper ripRouting;
 
@@ -121,6 +153,7 @@ int main (int argc, char **argv)
   // However, interface 0 is always the loopback...
   ripRouting.ExcludeInterface (a, 1);
   ripRouting.ExcludeInterface (b, 3);
+  ripRouting.ExcludeInterface (c, 3);
 
 //  ripRouting.SetInterfaceMetric (c, 3, 10);
 //  ripRouting.SetInterfaceMetric (d, 1, 10);
@@ -139,8 +172,9 @@ int main (int argc, char **argv)
   InternetStackHelper internetNodes;
   internetNodes.SetIpv6StackInstall (false);
   internetNodes.Install (nodes);
-  /**********************end**************************/
-
+  internetNodes.Install(unusefulAddtions);
+  internetNodes.Install(wifiAPContainer);
+  internetNodes.Install(wifiSAOContainer);
 
   // set concrete static position
   ListPositionAllocator nodesPositionAllocator;
@@ -154,8 +188,8 @@ int main (int argc, char **argv)
   nodesmobility.Install(nodes);
 
   ListPositionAllocator routers1PositionAllocator;
-  Vector aPos(200, 300, 0);
-  Vector bPos(400, 300, 0);
+  Vector aPos(260, 300, 0);
+  Vector bPos(340, 300, 0);
   Vector cPos(200, 400, 0);
   Vector dPos(300, 400, 0);
   Vector ePos(400, 400, 0);
@@ -187,7 +221,40 @@ int main (int argc, char **argv)
   wifimobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   wifimobility.Install(wifiAPContainer);
 
-  // Assign addresses exclude net10 & net11
+  ListPositionAllocator unusefulPositionAllocator;
+  for(int i=0;i<unusefulAmount;i++)
+  {
+	  Vector currentPos(150+i*35,460,0);
+	  unusefulPositionAllocator.Add(currentPos);
+  }
+  MobilityHelper unusefulMobility;
+  unusefulMobility.SetPositionAllocator(&unusefulPositionAllocator);
+  unusefulMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+  unusefulMobility.Install(unusefulAddtions);
+
+  Vector AsunaPos(280, 250, 0);
+  ListPositionAllocator AsunaPositionAllocator;
+  AsunaPositionAllocator.Add(AsunaPos);
+  MobilityHelper AsunaMobility;
+  AsunaMobility.SetPositionAllocator(&AsunaPositionAllocator);
+  AsunaMobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+  AsunaMobility.Install(Asuna);
+
+  MobilityHelper KazutoMobility;
+
+  KazutoMobility.SetPositionAllocator ("ns3::GridPositionAllocator",
+							   "MinX", DoubleValue (320.0),
+							   "MinY", DoubleValue (250.0),
+							   "DeltaX", DoubleValue (15.0),
+							   "DeltaY", DoubleValue (20.0),
+							   "GridWidth", UintegerValue (3),
+							   "LayoutType", StringValue ("RowFirst"));
+
+  KazutoMobility.SetMobilityModel ("ns3::RandomWalk2dMobilityModel",
+						   "Bounds", RectangleValue (Rectangle (270, 370, 200, 300)));
+  KazutoMobility.Install (Kazuto);
+
+  // Assign addresses
 
   // Assign addresses.
   // The source and destination networks have global addresses
@@ -224,6 +291,15 @@ int main (int argc, char **argv)
   ipv4.SetBase (Ipv4Address ("10.0.9.0"), Ipv4Mask ("255.255.255.0"));
   Ipv4InterfaceContainer iic9 = ipv4.Assign (ndc9);
 
+  // Wifi Address Assign
+  ipv4.SetBase(Ipv4Address ("10.1.1.0"), Ipv4Mask ("255.255.255.0"));
+  ipv4.Assign(wifiStaDevices);
+  ipv4.Assign(wifiApDevices);
+
+  // Unuseful Address Assign
+  ipv4.SetBase(Ipv4Address ("10.8.1.0"), Ipv4Mask ("255.255.255.0"));
+  ipv4.Assign(unusefulNdc);
+
   /*******************start*************************/
   Ptr<Ipv4StaticRouting> staticRouting;
   staticRouting = Ipv4RoutingHelper::GetRouting <Ipv4StaticRouting> (src->GetObject<Ipv4> ()->GetRoutingProtocol ());
@@ -258,20 +334,36 @@ int main (int argc, char **argv)
   uint32_t packetSize = 1024;
   Time interPacketInterval = Seconds (1.0);
   V4PingHelper ping ("10.0.9.2");
+  V4PingHelper pingWifi ("10.1.1.3");
 
   ping.SetAttribute ("Interval", TimeValue (interPacketInterval));
   ping.SetAttribute ("Size", UintegerValue (packetSize));
+
+//  pingWifi.SetAttribute ("Interval", TimeValue (interPacketInterval));
+//  pingWifi.SetAttribute ("Size", UintegerValue (packetSize));
+
   if (showPings)
     {
       ping.SetAttribute ("Verbose", BooleanValue (true));
+//      pingWifi.SetAttribute("Verbose", BooleanValue (true));
     }
   ApplicationContainer apps = ping.Install (src);
+//  ApplicationContainer wifiApps = pingWifi.Install(a);
+
   apps.Start (Seconds (1.0));
   apps.Stop (Seconds (200.0));
+
+//  wifiApps.Start (Seconds (2.0));
+//  wifiApps.Stop (Seconds (150.0));
 
   AsciiTraceHelper ascii;
   csma.EnableAsciiAll (ascii.CreateFileStream ("rip-poi-routing.tr"));
   csma.EnablePcapAll ("rip-poi-routing", true);
+
+
+  Simulator::Schedule(Seconds (20),&MoveOutNode,Ap);
+  Simulator::Schedule(Seconds (70), &TearDownLink,a,Ap,4,0);
+  Simulator::Schedule(Seconds (70), &TearDownLink,b,Ap,4,1); //83s reconnect
 
   /*********************end*********************/
 
@@ -282,8 +374,27 @@ int main (int argc, char **argv)
   AnimationInterface anim ("xmls/poi-rip.xml");
   anim.UpdateNodeDescription(src,"source");
   anim.UpdateNodeDescription(dst,"destination");
+  anim.UpdateNodeDescription(Ap,"AP");
+  anim.UpdateNodeDescription(Asuna,"Q1");
+  anim.UpdateNodeDescription(Kazuto,"Q2");
+  std::string descrip;
+  for (int i=0;i<5;i++)
+  {
+	  descrip = 'A' + i;
+	  anim.UpdateNodeDescription(routers1.Get(i),descrip);
+  }
+  anim.UpdateNodeDescription(f,"F");
+  anim.UpdateNodeDescription(g,"G");
+  anim.UpdateNodeColor(Ap,128,109,158);
   anim.UpdateNodeColor(src,10,240,10);
   anim.UpdateNodeColor(dst,10,10,240);
+  anim.UpdateNodeColor(Asuna,249,125,28);
+  anim.UpdateNodeColor(Kazuto,249,125,28);
+  for(int i=0;i<unusefulAmount;i++)
+  {
+	  anim.UpdateNodeColor(unusefulAddtions.Get(i),80,80,80);
+  }
+  csma.EnablePcapAll("pcap/mycsma");
   Simulator::Run ();
   Simulator::Destroy ();
   NS_LOG_INFO ("Done.");
