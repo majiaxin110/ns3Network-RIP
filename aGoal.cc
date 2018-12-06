@@ -6,6 +6,8 @@
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-routing-table-entry.h"
 #include "ns3/netanim-module.h"
+#include "ns3/wifi-module.h"
+#include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
 
 using namespace ns3;
@@ -112,7 +114,30 @@ int main (int argc, char **argv)
   NetDeviceContainer ndc8 = csma.Install (net8);
   NetDeviceContainer ndc9 = csma.Install (net9);
 
-  /***********************start**************************/
+  // Begin : Wifi Channel settings
+  YansWifiChannelHelper wifiChannel = YansWifiChannelHelper::Default();
+  YansWifiPhyHelper wifiPhy = YansWifiPhyHelper::Default();
+  wifiPhy.SetChannel(wifiChannel.Create());
+
+  WifiHelper wifi;
+  wifi.SetRemoteStationManager("ns3::AarfWifiManager");
+
+  WifiMacHelper mac;
+  Ssid ssid = Ssid ("ns-3-ssid-poi");
+  mac.SetType("ns3::StaWifiMac",
+		  "Ssid", SsidValue(ssid),
+		  "ActiveProbing",BooleanValue(false));
+
+  NetDeviceContainer wifiStaDevices;
+  wifiStaDevices = wifi.Install(wifiPhy,mac,wifiStaContainer);
+
+  mac.SetType("ns3::ApWifiMac",
+		  "Ssid", SsidValue(ssid));
+
+  NetDeviceContainer wifiApDevices;
+  wifiApDevices = wifi.Install(wifiPhy,mac,wifiAPContainer);
+
+  // Begin : RIP routing settings
   NS_LOG_INFO ("Create IPv4 and routing");
   RipHelper ripRouting;
 
@@ -139,7 +164,7 @@ int main (int argc, char **argv)
   InternetStackHelper internetNodes;
   internetNodes.SetIpv6StackInstall (false);
   internetNodes.Install (nodes);
-  /**********************end**************************/
+  internetNodes.Install(wifiAPContainer);
 
 
   // set concrete static position
@@ -154,8 +179,8 @@ int main (int argc, char **argv)
   nodesmobility.Install(nodes);
 
   ListPositionAllocator routers1PositionAllocator;
-  Vector aPos(200, 300, 0);
-  Vector bPos(400, 300, 0);
+  Vector aPos(260, 300, 0);
+  Vector bPos(340, 300, 0);
   Vector cPos(200, 400, 0);
   Vector dPos(300, 400, 0);
   Vector ePos(400, 400, 0);
@@ -187,7 +212,7 @@ int main (int argc, char **argv)
   wifimobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   wifimobility.Install(wifiAPContainer);
 
-  // Assign addresses exclude net10 & net11
+  // Assign addresses
 
   // Assign addresses.
   // The source and destination networks have global addresses
@@ -224,6 +249,11 @@ int main (int argc, char **argv)
   ipv4.SetBase (Ipv4Address ("10.0.9.0"), Ipv4Mask ("255.255.255.0"));
   Ipv4InterfaceContainer iic9 = ipv4.Assign (ndc9);
 
+  // Wifi Address Assign
+  ipv4.SetBase(Ipv4Address ("10.1.1.0"), Ipv4Mask ("255.255.255.0"));
+  ipv4.Assign(wifiStaDevices);
+  ipv4.Assign(wifiApDevices);
+
   /*******************start*************************/
   Ptr<Ipv4StaticRouting> staticRouting;
   staticRouting = Ipv4RoutingHelper::GetRouting <Ipv4StaticRouting> (src->GetObject<Ipv4> ()->GetRoutingProtocol ());
@@ -258,16 +288,27 @@ int main (int argc, char **argv)
   uint32_t packetSize = 1024;
   Time interPacketInterval = Seconds (1.0);
   V4PingHelper ping ("10.0.9.2");
+  V4PingHelper pingWifi ("10.1.1.3");
 
   ping.SetAttribute ("Interval", TimeValue (interPacketInterval));
   ping.SetAttribute ("Size", UintegerValue (packetSize));
+
+//  pingWifi.SetAttribute ("Interval", TimeValue (interPacketInterval));
+//  pingWifi.SetAttribute ("Size", UintegerValue (packetSize));
+
   if (showPings)
     {
       ping.SetAttribute ("Verbose", BooleanValue (true));
+//      pingWifi.SetAttribute("Verbose", BooleanValue (true));
     }
   ApplicationContainer apps = ping.Install (src);
+//  ApplicationContainer wifiApps = pingWifi.Install(a);
+
   apps.Start (Seconds (1.0));
   apps.Stop (Seconds (200.0));
+
+//  wifiApps.Start (Seconds (2.0));
+//  wifiApps.Stop (Seconds (150.0));
 
   AsciiTraceHelper ascii;
   csma.EnableAsciiAll (ascii.CreateFileStream ("rip-poi-routing.tr"));
@@ -282,6 +323,8 @@ int main (int argc, char **argv)
   AnimationInterface anim ("xmls/poi-rip.xml");
   anim.UpdateNodeDescription(src,"source");
   anim.UpdateNodeDescription(dst,"destination");
+  anim.UpdateNodeDescription(Ap,"AP");
+  anim.UpdateNodeColor(Ap,128,109,158);
   anim.UpdateNodeColor(src,10,240,10);
   anim.UpdateNodeColor(dst,10,10,240);
   Simulator::Run ();
