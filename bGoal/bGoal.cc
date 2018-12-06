@@ -10,6 +10,8 @@
 #include "ns3/wifi-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
+#include "ns3/random-variable-stream.h"
+#include "ns3/rng-seed-manager.h"
 
 using namespace ns3;
 
@@ -130,7 +132,7 @@ int main (int argc, char **argv)
 
   ListPositionAllocator nodesPositionAllocator;
   Vector srcPos(30, 40, 0);
-  Vector dstPos(50 + routersAmount * 10, 40, 0);
+  Vector dstPos(60 + routersAmount * 10, 40, 0);
   nodesPositionAllocator.Add(srcPos);
   nodesPositionAllocator.Add(dstPos);
   MobilityHelper nodesMobility;
@@ -164,6 +166,30 @@ int main (int argc, char **argv)
 	  Ipv4InterfaceContainer currentIIC = ipv4.Assign(currentDevice);
 
 	  currentAddr = "10.0.";
+  }
+  RngSeedManager::SetSeed(routersAmount); // Random Seed
+  double minRandom = 0.0;
+  double maxRandom = 10.0;
+  Ptr<UniformRandomVariable> uvRandom = CreateObject<UniformRandomVariable>();
+  uvRandom->SetAttribute("Min",DoubleValue(minRandom));
+  uvRandom->SetAttribute("Max",DoubleValue(maxRandom));
+
+  currentAddr = "10.168.";
+
+  for(int i=1;i < routersAmount - 1 ;i = i+2)
+  {
+	  double r = uvRandom->GetValue();
+	  if(r > 6) // Percent: 0.4
+	  {
+		  NodeContainer pairRouters(routers.Get(i),routers.Get(i+2));
+		  NetDeviceContainer currentDevice = csma.Install(pairRouters);
+		  currentAddr += char('0' + i);
+		  currentAddr.append(".0");
+		  ipv4.SetBase(Ipv4Address(currentAddr.c_str()), Ipv4Mask("255.255.255.0"));
+		  Ipv4InterfaceContainer currentIIC = ipv4.Assign(currentDevice);
+
+		  currentAddr = "10.168.";
+	  }
   }
 
   NetDeviceContainer srcConn = csma.Install(srcNodes);
