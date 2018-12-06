@@ -120,11 +120,11 @@ int main (int argc, char **argv)
   NodeContainer wifiStaContainer (a,b,Asuna,Kazuto);
   NodeContainer wifiSAOContainer (Asuna,Kazuto);
 
+  NodeContainer unusefulAddtions;
+  unusefulAddtions.Create(unusefulAmount);
   NodeContainer unusefulCSMANodes;
-  unusefulCSMANodes.Create(unusefulAmount);
-  NodeContainer unusefulAddtions = unusefulCSMANodes;
   unusefulCSMANodes.Add(c);
-
+  unusefulCSMANodes.Add(unusefulAddtions);
 
   // Create channels exclude wifi
   NS_LOG_INFO ("Create channels.");
