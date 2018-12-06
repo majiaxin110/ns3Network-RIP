@@ -6,7 +6,10 @@
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-routing-table-entry.h"
 #include "ns3/netanim-module.h"
+#include "ns3/wifi-module.h"
+#include "ns3/applications-module.h"
 #include "ns3/mobility-module.h"
+#include <string>
 
 using namespace ns3;
 
@@ -18,11 +21,23 @@ void TearDownLink (Ptr<Node> nodeA, Ptr<Node> nodeB, uint32_t interfaceA, uint32
   nodeB->GetObject<Ipv4> ()->SetDown (interfaceB);
 }
 
+void MoveOutNode (Ptr<Node> nodeA)
+{
+  ListPositionAllocator nodesPositionAllocator;
+  Vector newPos(800, 300, 0);
+  nodesPositionAllocator.Add(newPos);
+  MobilityHelper nodesmobility;
+  nodesmobility.SetPositionAllocator(&nodesPositionAllocator);
+  nodesmobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+  nodesmobility.Install(nodeA);
+}
+
 int main (int argc, char **argv)
 {
   bool verbose = false;
   bool printRoutingTables = true;
   bool showPings = true;
+  int unusefulAmount = 4;
   std::string SplitHorizon ("PoisonReverse");
 
   CommandLine cmd;
@@ -80,6 +95,13 @@ int main (int argc, char **argv)
   Names::Add ("RouterF", f);
   Ptr<Node> g = CreateObject<Node> ();
   Names::Add ("RouterG", g);
+
+  Ptr<Node> Asuna = CreateObject<Node> ();
+  Names::Add ("Asuna", Asuna);
+
+  Ptr<Node> Kazuto = CreateObject<Node> ();
+  Names::Add ("Kazuto", Kazuto);
+
   NodeContainer net1 (src, a); // a->src is 1
   NodeContainer net2 (a, f);
   NodeContainer net3 (f, g);
