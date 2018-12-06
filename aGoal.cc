@@ -1,56 +1,3 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/*
- * Copyright (c) 2016 Universita' di Firenze, Italy
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation;
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- *
- * Author: Tommaso Pecorella <tommaso.pecorella@unifi.it>
- */
-
-// Network topology
-//
-//    SRC
-//     |<=== source network
-//     A-----B
-//      \   / \   all networks have cost 1, except
-//       \ /  |   for the direct link from C to D, which
-//        C  /    has cost 10
-//        | /
-//        |/
-//        D
-//        |<=== target network
-//       DST
-//
-//
-// A, B, C and D are RIPng routers.
-// A and D are configured with static addresses.
-// SRC and DST will exchange packets.
-//
-// After about 3 seconds, the topology is built, and Echo Reply will be received.
-// After 40 seconds, the link between B and D will break, causing a route failure.
-// After 44 seconds from the failure, the routers will recovery from the failure.
-// Split Horizoning should affect the recovery time, but it is not. See the manual
-// for an explanation of this effect.
-//
-// If "showPings" is enabled, the user will see:
-// 1) if the ping has been acknowledged
-// 2) if a Destination Unreachable has been received by the sender
-// 3) nothing, when the Echo Request has been received by the destination but
-//    the Echo Reply is unable to reach the sender.
-// Examining the .pcap files with Wireshark can confirm this effect.
-
-
 #include <fstream>
 #include "ns3/core-module.h"
 #include "ns3/internet-module.h"
@@ -63,7 +10,7 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("RipSimpleRouting");
+NS_LOG_COMPONENT_DEFINE ("PoiRipRouting");
 
 void TearDownLink (Ptr<Node> nodeA, Ptr<Node> nodeB, uint32_t interfaceA, uint32_t interfaceB)
 {
@@ -142,12 +89,13 @@ int main (int argc, char **argv)
   NodeContainer net7 (d, c);
   NodeContainer net8 (c, a);
   NodeContainer net9(b, dst); // b->dst is 3
-  NodeContainer net10(a, Ap); // a->Ap is 4
-  NodeContainer net11(Ap, b); // b->Ap is 4
+//  NodeContainer net10(a, Ap); // a->Ap is 4
+//  NodeContainer net11(Ap, b); // b->Ap is 4
   NodeContainer routers1 (a, b, c, d, e); // NodeContainer's Constructor can only receive up to 5 parameters
   NodeContainer routers2 (f, g);
   NodeContainer nodes (src, dst);
-  NodeContainer wifi (Ap);
+  NodeContainer wifiAPContainer (Ap);
+  NodeContainer wifiStaContainer (a,b);
 
   // Create channels exclude wifi
   NS_LOG_INFO ("Create channels.");
@@ -174,8 +122,8 @@ int main (int argc, char **argv)
   ripRouting.ExcludeInterface (a, 1);
   ripRouting.ExcludeInterface (b, 3);
 
-  ripRouting.SetInterfaceMetric (c, 3, 10);
-  ripRouting.SetInterfaceMetric (d, 1, 10);
+//  ripRouting.SetInterfaceMetric (c, 3, 10);
+//  ripRouting.SetInterfaceMetric (d, 1, 10);
 
   Ipv4ListRoutingHelper listRH;
   listRH.Add (ripRouting, 0);
@@ -237,7 +185,7 @@ int main (int argc, char **argv)
   MobilityHelper wifimobility;
   wifimobility.SetPositionAllocator(&wifiPositionAllocator);
   wifimobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-  wifimobility.Install(wifi);
+  wifimobility.Install(wifiAPContainer);
 
   // Assign addresses exclude net10 & net11
 
@@ -276,16 +224,14 @@ int main (int argc, char **argv)
   ipv4.SetBase (Ipv4Address ("10.0.9.0"), Ipv4Mask ("255.255.255.0"));
   Ipv4InterfaceContainer iic9 = ipv4.Assign (ndc9);
 
-  Vector srcPosition(20.0,20.0,0.0);
-  Vector destPosition(85.0,52.0,0.0);
-
   /*******************start*************************/
   Ptr<Ipv4StaticRouting> staticRouting;
   staticRouting = Ipv4RoutingHelper::GetRouting <Ipv4StaticRouting> (src->GetObject<Ipv4> ()->GetRoutingProtocol ());
-  staticRouting->SetDefaultRoute ("10.0.0.2", 1 );
+  staticRouting->SetDefaultRoute ("10.0.1.2", 1 );
   staticRouting = Ipv4RoutingHelper::GetRouting <Ipv4StaticRouting> (dst->GetObject<Ipv4> ()->GetRoutingProtocol ());
-  staticRouting->SetDefaultRoute ("10.0.6.1", 1 );
+  staticRouting->SetDefaultRoute ("10.0.9.1", 1 );
 
+  //TO-DO: modify table output
   if (printRoutingTables)
     {
       RipHelper routingHelper;
@@ -324,16 +270,20 @@ int main (int argc, char **argv)
   apps.Stop (Seconds (200.0));
 
   AsciiTraceHelper ascii;
-  csma.EnableAsciiAll (ascii.CreateFileStream ("rip-simple-routing.tr"));
-  csma.EnablePcapAll ("rip-simple-routing", true);
+  csma.EnableAsciiAll (ascii.CreateFileStream ("rip-poi-routing.tr"));
+  csma.EnablePcapAll ("rip-poi-routing", true);
 
   /*********************end*********************/
 
   /* Now, do the actual simulation. */
   NS_LOG_INFO ("Run Simulation.");
-  Simulator::Stop (Seconds (131.0));
+  Simulator::Stop (Seconds (200.0));
 
-  AnimationInterface anim ("xmls/rip.xml");
+  AnimationInterface anim ("xmls/poi-rip.xml");
+  anim.UpdateNodeDescription(src,"source");
+  anim.UpdateNodeDescription(dst,"destination");
+  anim.UpdateNodeColor(src,10,240,10);
+  anim.UpdateNodeColor(dst,10,10,240);
   Simulator::Run ();
   Simulator::Destroy ();
   NS_LOG_INFO ("Done.");
