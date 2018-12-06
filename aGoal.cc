@@ -336,20 +336,23 @@ int main (int argc, char **argv)
 
       Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> (&std::cout);
 
-      routingHelper.PrintRoutingTableAt (Seconds (30.0), a, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (30.0), b, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (30.0), c, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (30.0), d, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (15.0), a, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (15.0), b, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (15.0), c, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (15.0), d, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (15.0), e, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (15.0), f, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (15.0), g, routingStream);
 
-      routingHelper.PrintRoutingTableAt (Seconds (60.0), a, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (60.0), b, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (60.0), c, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (60.0), d, routingStream);
+      std::cout<<"======================================================="<<std::endl;
 
-      routingHelper.PrintRoutingTableAt (Seconds (90.0), a, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (90.0), b, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (90.0), c, routingStream);
-      routingHelper.PrintRoutingTableAt (Seconds (90.0), d, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (85.0), a, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (85.0), b, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (85.0), c, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (85.0), d, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (85.0), e, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (85.0), f, routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (85.0), g, routingStream);
     }
 
   NS_LOG_INFO ("Create Applications.");
