@@ -20,6 +20,17 @@ void TearDownLink (Ptr<Node> nodeA, Ptr<Node> nodeB, uint32_t interfaceA, uint32
   nodeB->GetObject<Ipv4> ()->SetDown (interfaceB);
 }
 
+void MoveOutNode (Ptr<Node> nodeA)
+{
+  ListPositionAllocator nodesPositionAllocator;
+  Vector newPos(800, 300, 0);
+  nodesPositionAllocator.Add(newPos);
+  MobilityHelper nodesmobility;
+  nodesmobility.SetPositionAllocator(&nodesPositionAllocator);
+  nodesmobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+  nodesmobility.Install(nodeA);
+}
+
 int main (int argc, char **argv)
 {
   bool verbose = false;
@@ -91,8 +102,8 @@ int main (int argc, char **argv)
   NodeContainer net7 (d, c);
   NodeContainer net8 (c, a);
   NodeContainer net9(b, dst); // b->dst is 3
-//  NodeContainer net10(a, Ap); // a->Ap is 4
-//  NodeContainer net11(Ap, b); // b->Ap is 4
+  NodeContainer net10(a, Ap); // a->Ap is 4
+  NodeContainer net11(Ap, b); // b->Ap is 4
   NodeContainer routers1 (a, b, c, d, e); // NodeContainer's Constructor can only receive up to 5 parameters
   NodeContainer routers2 (f, g);
   NodeContainer nodes (src, dst);
@@ -313,6 +324,11 @@ int main (int argc, char **argv)
   AsciiTraceHelper ascii;
   csma.EnableAsciiAll (ascii.CreateFileStream ("rip-poi-routing.tr"));
   csma.EnablePcapAll ("rip-poi-routing", true);
+
+
+  Simulator::Schedule(Seconds (20),&MoveOutNode,Ap);
+  Simulator::Schedule(Seconds (80), &TearDownLink,a,Ap,4,0);
+  Simulator::Schedule(Seconds (80), &TearDownLink,b,Ap,4,1);
 
   /*********************end*********************/
 
