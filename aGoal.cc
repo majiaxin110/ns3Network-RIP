@@ -329,7 +329,6 @@ int main (int argc, char **argv)
   staticRouting = Ipv4RoutingHelper::GetRouting <Ipv4StaticRouting> (dst->GetObject<Ipv4> ()->GetRoutingProtocol ());
   staticRouting->SetDefaultRoute ("10.0.9.1", 1 );
 
-  //TO-DO: modify table output
   if (printRoutingTables)
     {
       RipHelper routingHelper;
@@ -356,7 +355,7 @@ int main (int argc, char **argv)
   uint32_t packetSize = 1024;
   Time interPacketInterval = Seconds (1.0);
   V4PingHelper ping ("10.0.9.2");
-  V4PingHelper pingWifi ("10.1.1.3");
+//  V4PingHelper pingWifi ("10.1.1.3");
 
   ping.SetAttribute ("Interval", TimeValue (interPacketInterval));
   ping.SetAttribute ("Size", UintegerValue (packetSize));

@@ -1,5 +1,6 @@
 #include <fstream>
 #include <string>
+#include <vector>
 #include "ns3/core-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/csma-module.h"
@@ -34,10 +35,42 @@ void MoveOutNode (Ptr<Node> nodeA)
   nodesmobility.Install(nodeA);
 }
 
+void removeConnRandomly(int routersAmount, std::vector<int>& ableNodesVec,NodeContainer& routers)
+{
+
+	RngSeedManager::SetSeed(routersAmount); // Random Seed
+    double minRandom = 0.0;
+    double maxRandom = 10.0;
+    Ptr<UniformRandomVariable> uvRandom = CreateObject<UniformRandomVariable>();
+    uvRandom->SetAttribute("Min",DoubleValue(minRandom));
+    uvRandom->SetAttribute("Max",DoubleValue(maxRandom));
+    bool isDelRandomly = false;
+
+    for(int x:ableNodesVec)
+    {
+    	double r = uvRandom->GetValue();
+    	if(r > 5) //percent : 50%
+    	{
+    		TearDownLink(routers.Get(x),routers.Get(x+2),3,3);
+    		isDelRandomly = true;
+
+    		std::cout<<"INFO: Connection between "<< x+2 <<" "<< x+4 <<" has been teared down\n";
+    	}
+//    	if(removeAmount <= 0)
+//    		break;
+//    	TearDownLink(routers.Get(x),routers.Get(x+2),3,3);
+//    	removeAmount --;
+    }
+
+    if(!isDelRandomly)
+    {
+    	TearDownLink(routers.Get(ableNodesVec.at(0)),routers.Get(ableNodesVec.at(0)+2),3,3);
+    }
+}
 int main (int argc, char **argv)
 {
   bool verbose = false;
-  bool printRoutingTables = false;
+  bool printRoutingTables = true;
   bool showPings = true;
   int routersAmount = 4;
   std::string SplitHorizon ("PoisonReverse");
@@ -50,6 +83,7 @@ int main (int argc, char **argv)
   cmd.AddValue ("amount","The amount of routers", routersAmount);
   cmd.Parse (argc, argv);
 
+  std::vector<int> hasConnectionVec;
   if (verbose)
     {
       LogComponentEnableAll (LogLevel (LOG_PREFIX_TIME | LOG_PREFIX_NODE));
@@ -176,11 +210,14 @@ int main (int argc, char **argv)
 
   currentAddr = "10.168.";
 
-  for(int i=1;i < routersAmount - 1 ;i = i+2)
+  for(int i=1;i < routersAmount - 3 ;)
   {
 	  double r = uvRandom->GetValue();
-	  if(r > 6) // Percent: 0.4
+	  std::cout<<r<<"\n";
+	  if(r > 4.0) // Percent: 0.6
 	  {
+		  hasConnectionVec.push_back(i);
+
 		  NodeContainer pairRouters(routers.Get(i),routers.Get(i+2));
 		  NetDeviceContainer currentDevice = csma.Install(pairRouters);
 		  currentAddr += char('0' + i);
@@ -188,7 +225,14 @@ int main (int argc, char **argv)
 		  ipv4.SetBase(Ipv4Address(currentAddr.c_str()), Ipv4Mask("255.255.255.0"));
 		  Ipv4InterfaceContainer currentIIC = ipv4.Assign(currentDevice);
 
+		  std::cout<<"Node:"<<i+2<<" and "<<i+4<<" connected!"<<"\n";
+
 		  currentAddr = "10.168.";
+		  i = i+2;
+	  }
+	  else {
+		  i = i+1;
+		  continue;
 	  }
   }
 
@@ -214,30 +258,33 @@ int main (int argc, char **argv)
 
       Ptr<OutputStreamWrapper> routingStream = Create<OutputStreamWrapper> (&std::cout);
 
+      routingHelper.PrintRoutingTableAt (Seconds (40.0), routers.Get(3), routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (50.0), routers.Get(3), routingStream);
+      routingHelper.PrintRoutingTableAt (Seconds (90.0), routers.Get(3), routingStream);
     }
 
   NS_LOG_INFO ("Create Applications.");
-//  uint32_t packetSize = 1024;
-  Time interPacketInterval = Seconds (1.0);
-//  V4PingHelper ping ("10.0.1.1");
+  uint32_t packetSize = 1024;
+  Time interPacketInterval = Seconds (2.0);
+  V4PingHelper ping ("10.7.0.2");
 //  V4PingHelper pingWifi ("10.1.1.3");
 
-//  ping.SetAttribute ("Interval", TimeValue (interPacketInterval));
-//  ping.SetAttribute ("Size", UintegerValue (packetSize));
+  ping.SetAttribute ("Interval", TimeValue (interPacketInterval));
+  ping.SetAttribute ("Size", UintegerValue (packetSize));
 
 //  pingWifi.SetAttribute ("Interval", TimeValue (interPacketInterval));
 //  pingWifi.SetAttribute ("Size", UintegerValue (packetSize));
 
   if (showPings)
-    {
-//      ping.SetAttribute ("Verbose", BooleanValue (true));
+  {
+    ping.SetAttribute ("Verbose", BooleanValue (true));
 //      pingWifi.SetAttribute("Verbose", BooleanValue (true));
-    }
-//  ApplicationContainer apps = ping.Install (src);
+  }
+  ApplicationContainer apps = ping.Install (src);
 //  ApplicationContainer wifiApps = pingWifi.Install(a);
 
-//  apps.Start (Seconds (1.0));
-//  apps.Stop (Seconds (200.0));
+  apps.Start (Seconds (2.0));
+  apps.Stop (Seconds (800.0));
 
 //  wifiApps.Start (Seconds (2.0));
 //  wifiApps.Stop (Seconds (150.0));
@@ -246,12 +293,11 @@ int main (int argc, char **argv)
   csma.EnableAsciiAll (ascii.CreateFileStream ("rip-poi-B-project.tr"));
   csma.EnablePcapAll ("rip-poi-B-project", true);
 
-
-  /*********************end*********************/
+  Simulator::Schedule(Seconds(40),&removeConnRandomly,routersAmount,hasConnectionVec,routers);
 
   /* Now, do the actual simulation. */
   NS_LOG_INFO ("Run Simulation.");
-  Simulator::Stop (Seconds (200.0));
+  Simulator::Stop (Seconds (800.0));
 
   AnimationInterface anim ("xmls/poi-B-project.xml");
   anim.UpdateNodeDescription(src,"source");
